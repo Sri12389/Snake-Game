@@ -1,0 +1,223 @@
+#!/usr/bin/env python3
+import curses
+import random
+import time
+
+def main(stdscr):
+    # Initialize curses
+    curses.curs_set(0)  # Hide cursor
+    curses.start_color()
+    curses.init_pair(1, curses.COLOR_GREEN, curses.COLOR_BLACK)  # Snake color
+    curses.init_pair(2, curses.COLOR_RED, curses.COLOR_BLACK)    # Food color
+    curses.init_pair(3, curses.COLOR_YELLOW, curses.COLOR_BLACK) # Score color
+    curses.init_pair(4, curses.COLOR_CYAN, curses.COLOR_BLACK)   # Border color
+    
+    # Initial game state
+    game_state = {
+        "snake": [(10, 15), (10, 14), (10, 13)],  # Head is first element
+        "direction": curses.KEY_RIGHT,
+        "food": (15, 20),
+        "score": 0,
+        "speed": 0.1,  # Delay in seconds between moves
+        "game_over": False
+    }
+    
+    # Get screen dimensions
+    height, width = stdscr.getmaxyx()
+    game_area = curses.newwin(height-2, width-2, 1, 1)
+    game_area.keypad(True)  # Enable special keys
+    game_area.timeout(100)  # Input delay in milliseconds
+    
+    # Display instructions
+    show_instructions(stdscr, height, width)
+    
+    # Main game loop
+    while True:
+        # Draw border
+        stdscr.clear()
+        draw_border(stdscr, height, width)
+        
+        # Show score
+        stdscr.addstr(0, 5, f" Score: {game_state['score']} ", curses.color_pair(3))
+        
+        # Display game over message if needed
+        if game_state["game_over"]:
+            show_game_over(game_area, height, width, game_state["score"])
+            key = game_area.getch()
+            
+            if key == ord('r'):
+                # Reset game state
+                game_state = {
+                    "snake": [(10, 15), (10, 14), (10, 13)],
+                    "direction": curses.KEY_RIGHT,
+                    "food": (15, 20),
+                    "score": 0,
+                    "speed": 0.1,
+                    "game_over": False
+                }
+            elif key == ord('q'):
+                break
+            continue
+        
+        # Get user input
+        key = game_area.getch()
+        
+        # Handle input
+        if key in [curses.KEY_UP, curses.KEY_DOWN, curses.KEY_LEFT, curses.KEY_RIGHT]:
+            # Prevent 180-degree turns
+            if (key == curses.KEY_UP and game_state["direction"] != curses.KEY_DOWN) or \
+               (key == curses.KEY_DOWN and game_state["direction"] != curses.KEY_UP) or \
+               (key == curses.KEY_LEFT and game_state["direction"] != curses.KEY_RIGHT) or \
+               (key == curses.KEY_RIGHT and game_state["direction"] != curses.KEY_LEFT):
+                game_state["direction"] = key
+        elif key == ord('q'):
+            break
+        elif key == ord('p'):
+            # Pause the game
+            pause_game(game_area, height, width)
+        
+        # Move snake
+        move_snake(game_state, height, width)
+        
+        # Check for collisions
+        if check_collision(game_state, height, width):
+            game_state["game_over"] = True
+            continue
+            
+        # Check if food was eaten
+        if game_state["snake"][0] == game_state["food"]:
+            # Increase score
+            game_state["score"] += 10
+            
+            # Generate new food
+            while True:
+                new_food = (random.randint(2, height-4), random.randint(2, width-4))
+                if new_food not in game_state["snake"]:
+                    game_state["food"] = new_food
+                    break
+            
+            # Increase snake length (by not removing the tail in the move_snake function)
+            pass
+        else:
+            # Remove tail if no food was eaten
+            game_state["snake"].pop()
+        
+        # Draw snake
+        for i, (y, x) in enumerate(game_state["snake"]):
+            if 0 <= y < height-2 and 0 <= x < width-2:  # Ensure within bounds
+                if i == 0:  # Snake head
+                    stdscr.addstr(y, x, "O", curses.color_pair(1) | curses.A_BOLD)
+                else:  # Snake body
+                    stdscr.addstr(y, x, "o", curses.color_pair(1))
+        
+        # Draw food
+        food_y, food_x = game_state["food"]
+        if 0 <= food_y < height-2 and 0 <= food_x < width-2:  # Ensure within bounds
+            stdscr.addstr(food_y, food_x, "*", curses.color_pair(2) | curses.A_BOLD)
+        
+        # Refresh screen
+        stdscr.refresh()
+        
+        # Control game speed
+        time.sleep(game_state["speed"])
+
+def move_snake(game_state, height, width):
+    head_y, head_x = game_state["snake"][0]
+    
+    # Calculate new head position based on direction
+    if game_state["direction"] == curses.KEY_UP:
+        new_head = (head_y - 1, head_x)
+    elif game_state["direction"] == curses.KEY_DOWN:
+        new_head = (head_y + 1, head_x)
+    elif game_state["direction"] == curses.KEY_LEFT:
+        new_head = (head_y, head_x - 1)
+    elif game_state["direction"] == curses.KEY_RIGHT:
+        new_head = (head_y, head_x + 1)
+    
+    # Add new head to snake
+    game_state["snake"].insert(0, new_head)
+
+def check_collision(game_state, height, width):
+    head_y, head_x = game_state["snake"][0]
+    
+    # Check for wall collision
+    if head_y <= 0 or head_y >= height-2 or head_x <= 0 or head_x >= width-2:
+        return True
+    
+    # Check for self collision (skip head when checking)
+    if game_state["snake"][0] in game_state["snake"][1:]:
+        return True
+    
+    return False
+
+def draw_border(stdscr, height, width):
+    # Draw top and bottom borders
+    for x in range(width):
+        stdscr.addstr(0, x, "═", curses.color_pair(4))
+        stdscr.addstr(height-1, x, "═", curses.color_pair(4))
+    
+    # Draw left and right borders
+    for y in range(height):
+        stdscr.addstr(y, 0, "║", curses.color_pair(4))
+        stdscr.addstr(y, width-1, "║", curses.color_pair(4))
+    
+    # Draw corners
+    stdscr.addstr(0, 0, "╔", curses.color_pair(4))
+    stdscr.addstr(0, width-1, "╗", curses.color_pair(4))
+    stdscr.addstr(height-1, 0, "╚", curses.color_pair(4))
+    stdscr.addstr(height-1, width-1, "╝", curses.color_pair(4))
+
+def show_instructions(stdscr, height, width):
+    instructions = [
+        "SNAKE GAME",
+        "Controls:",
+        "Arrow Keys - Move Snake",
+        "P - Pause Game",
+        "Q - Quit Game",
+        "",
+        "Press any key to start..."
+    ]
+    
+    for i, line in enumerate(instructions):
+        y = height // 2 - len(instructions) // 2 + i
+        x = width // 2 - len(line) // 2
+        stdscr.addstr(y, x, line, curses.A_BOLD)
+    
+    stdscr.refresh()
+    stdscr.getch()
+
+def show_game_over(win, height, width, score):
+    game_over_msg = [
+        "GAME OVER",
+        f"Your Score: {score}",
+        "",
+        "Press 'r' to restart",
+        "Press 'q' to quit"
+    ]
+    
+    win.clear()
+    for i, line in enumerate(game_over_msg):
+        y = height // 2 - len(game_over_msg) // 2 + i
+        x = width // 2 - len(line) // 2
+        win.addstr(y, x, line, curses.A_BOLD)
+    
+    win.refresh()
+
+def pause_game(win, height, width):
+    pause_msg = "GAME PAUSED - Press any key to continue"
+    win.addstr(height // 2, width // 2 - len(pause_msg) // 2, pause_msg, curses.A_BOLD)
+    win.refresh()
+    win.getch()
+
+if __name__ == "__main__":
+    try:
+        # Initialize and start the game
+        curses.wrapper(main)
+    except KeyboardInterrupt:
+        # Handle Ctrl+C gracefully
+        pass
+    finally:
+        # Ensure terminal is reset properly
+        curses.endwin()
+        print("Thanks for playing Snake Game!")
+
