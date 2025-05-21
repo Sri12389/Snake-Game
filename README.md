@@ -1,1 +1,3 @@
 # Snake-Game
+
+This classic Snake game, built with Python and the curses library, challenges you to guide an ever-growing snake in your terminal to eat food pellets and increase your score. Players control the snake's movement using the Arrow Keys, with the ability to Pause the game, or Quit at any time. If the snake collides with the walls or its own tail, it's game over, at which point you can Restart or quit. To play, you'll need Python 3; curses is standard on Linux/macOS, but Windows users must first install windows-curses (e.g., via pip install windows-curses). Once requirements are met, simply navigate to the script's directory in your terminal and execute it using python3 Snake-Game.py.
